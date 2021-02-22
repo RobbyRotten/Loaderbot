@@ -1,15 +1,18 @@
 import cv2
 from os.path import isfile, isdir
 from os import remove, mkdir
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
+import threading
 
 CAMERA_NUM = 0
 
-def main():  
+def main(): 
+    writing_end = 0
+    writing = False
     while True:
-        command = commander()
         cap = cv2.VideoCapture(CAMERA_NUM)
+        command = commander()
         now = datetime.now()
         run = False
         if command == 'go':
@@ -29,12 +32,22 @@ def main():
             # Display the resulting frame
             cv2.imshow('frame',gray)
             
-            if command == 'save':
-                if not isdir('storage'):
-                    mkdir('storage')
-                cv2.imwrite('storage/{}.png'.format(str(datetime.now())),frame)
-                with open('commands.json','w') as js:
-                    json.dump({'command':'go'}, js)
+            if 'save' in command:
+                if writing == False:
+                    writing = True
+                    writing_end = now + timedelta(seconds=int(command.split('_')[1]))
+                    # print(now,writing_end)
+                    if not isdir('storage_img'):
+                        mkdir('storage_img')
+                elif writing == True:
+                    if now < writing_end:
+                        cv2.imwrite('storage_img/{}.png'.format(str(datetime.now())),frame)
+                    else:
+                        writing = False
+                        with open('commands.json','w') as js:
+                            json.dump({'command':'go'}, js)
+
+
             delta = now_new - now
             if delta.seconds >= 10:
                 if isfile('status.png'):
@@ -56,6 +69,7 @@ def commander():
     else:
         print('Error: command file "commands.json" missing')
         exit(1)
+
 
 if __name__ == "__main__":
     main()
