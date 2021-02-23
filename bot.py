@@ -20,9 +20,6 @@ def check_user(message):
         return True
     return False
 
-def send_video():
-    pass
-
 @bot.message_handler(commands=['start'])
 def start_message(message):
     print(message)
@@ -42,13 +39,21 @@ def send_text(message):
             elif message.text.lower() == 'picture':
                 bot.send_photo(message.chat.id, photo=open('./status.png', 'rb'))
 
+            elif message.text.lower() == 'start writing':
+                with open('commands.json','w') as js:
+                        json.dump({'command':'save_start'}, js)
+                bot.send_message(message.chat.id, 'Started writing')
+
+            elif message.text.lower() == 'stop writing':
+                with open('commands.json','w') as js:
+                        json.dump({'command':'save_stop'}, js)
+                bot.send_message(message.chat.id, 'Writing stopped')
+
             elif 'video' in message.text.lower():
                 if (re.search(r'video ([1-9]|[1-9][0-9]) (sec|min)',message.text.lower())):
                     info = message.text.split(' ')
                     units = info[2]
                     interval = int(info[1]) if 'sec' in units else int(info[1]) * 60
-                    with open('commands.json','w') as js:
-                        json.dump({'command':'save_{}'.format(interval)}, js)
                     bot.send_message(message.chat.id, 'Started writing. Wait for {} {}'.format(info[1],units))
                 else:
                     bot.send_message(message.chat.id, 'Error: wrong message format')

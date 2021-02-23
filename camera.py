@@ -3,12 +3,11 @@ from os.path import isfile, isdir
 from os import remove, mkdir
 from datetime import datetime, timedelta
 import json
-import threading
+
 
 CAMERA_NUM = 0
 
 def main(): 
-    writing_end = 0
     writing = False
     while True:
         cap = cv2.VideoCapture(CAMERA_NUM)
@@ -17,9 +16,14 @@ def main():
         run = False
         if command == 'go':
             run = True
+        elif command == 'shutdown':
+            exit(0)
         while run:
             command = commander()
-            if command == 'shutdown':
+            if command == 'save_stop':
+                writing = False
+                write_command('go')
+            elif command == 'shutdown':
                 exit(0)
             if (cv2.waitKey(1) & 0xFF == ord('q')) | (command == 'stop'):
                 break
@@ -32,26 +36,19 @@ def main():
             # Display the resulting frame
             cv2.imshow('frame',gray)
             
-            if 'save' in command:
-                if writing == False:
+            delta = now_new - now
+
+            if (command == 'save_start') | writing:
+                if not writing:
                     writing = True
-                    writing_end = now + timedelta(seconds=int(command.split('_')[1]))
-                    # print(now,writing_end)
                     if not isdir('storage_img'):
                         mkdir('storage_img')
-                elif writing == True:
-                    if now < writing_end:
+                    write_command('go')
+                if writing:
+                    if delta.seconds >= 1:
                         cv2.imwrite('storage_img/{}.png'.format(str(datetime.now())),frame)
-                    else:
-                        writing = False
-                        with open('commands.json','w') as js:
-                            json.dump({'command':'go'}, js)
-
-
-            delta = now_new - now
-            if delta.seconds >= 10:
-                if isfile('status.png'):
-                    remove('status.png')
+                        now = now_new
+            if delta.seconds >= 1:
                 cv2.imwrite('status.png',frame)
                 now = now_new
             command = commander()
@@ -69,6 +66,11 @@ def commander():
     else:
         print('Error: command file "commands.json" missing')
         exit(1)
+
+
+def write_command(command, additional=''):
+    with open('commands.json','w') as js:
+        json.dump({'command':command, 'additional':additional}, js)
 
 
 if __name__ == "__main__":
