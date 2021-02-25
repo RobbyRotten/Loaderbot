@@ -45,7 +45,7 @@ def main():
                         mkdir('storage_img')
                     write_command('go')
                 if writing:
-                    if delta.seconds >= 1:
+                    if delta.microseconds >= 100000:
                         cv2.imwrite('storage_img/{}.png'.format(str(datetime.now())),frame)
                         now = now_new
             if delta.seconds >= 1:

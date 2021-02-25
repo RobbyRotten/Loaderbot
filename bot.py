@@ -3,6 +3,10 @@ import json
 import threading
 import os
 import re
+import glob
+import cv2
+from os.path import isdir
+from datetime import datetime, timedelta
 
 ALLOWED_USERS = [434062911]
 RECORDING = False
@@ -19,6 +23,31 @@ def check_user(message):
     if message.from_user.id in ALLOWED_USERS:
         return True
     return False
+
+def make_video(interval):
+    files = [filename for filename in glob.glob('storage_img/*.png')]
+    files.sort()
+    to_video = [files[0]]
+    last_timestamp = datetime.strptime(files[0][12:-4], '%Y-%m-%d %H:%M:%S.%f')  
+    end_timestamp = last_timestamp - timedelta(seconds=interval)
+    for n in range(len(files)-1):
+        timestamp = datetime.strptime(files[n][12:-4], '%Y-%m-%d %H:%M:%S.%f')  
+        to_video.append(files[n])
+        if timestamp < end_timestamp:
+            break
+    img_arr = []
+    for filename in to_video:
+        img = cv2.imread(filename)
+        height, width, layers = img.shape
+        size = (width,height)
+        img_arr.append(img)
+    if not isdir('storage_video'):
+        os.mkdir('storage_video')
+    out = cv2.VideoWriter('storage_video/video_{}.mp4'.format(end_timestamp),cv2.VideoWriter_fourcc(*'MP4V'), 6, size)
+    for img in img_arr:
+        out.write(img)
+    out.release()
+    return end_timestamp
 
 @bot.message_handler(commands=['start'])
 def start_message(message):
@@ -54,9 +83,14 @@ def send_text(message):
                     info = message.text.split(' ')
                     units = info[2]
                     interval = int(info[1]) if 'sec' in units else int(info[1]) * 60
-                    bot.send_message(message.chat.id, 'Started writing. Wait for {} {}'.format(info[1],units))
+                    if isdir('storage_img'):
+                        end_timestamp = make_video(interval)
+                        bot.send_video(message.chat.id, open('storage_video/video_{}.mp4'.format(end_timestamp),'rb'))
+                    else:
+                        bot.send_message(message.chat.id, 'Error: image storage missing')
                 else:
                     bot.send_message(message.chat.id, 'Error: wrong message format')
+                    
             elif message.text.lower() == 'start recording':
                 RECORDING = True
                 with open('commands.json','w') as js:
@@ -83,6 +117,7 @@ def send_text(message):
 
         except Exception as e:
                 bot.send_message(message.chat.id, 'Error: {}'.format(e))
+                print(e)
     else:
         bot.send_message(message.chat.id, 'Access denied')
 
